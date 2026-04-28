@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Download, FileJson, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { safeHref } from "@shared/url";
 
 const API_BASE = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
 
@@ -215,18 +216,37 @@ function FindingItem({ finding, onUpdate }: { finding: any; onUpdate: (s: string
 
           {refs.length > 0 && (
             <ul className="mt-2 space-y-1 text-xs">
-              {refs.map((r) => (
-                <li key={r}>
-                  <a
-                    href={r}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="text-primary hover:underline break-all"
-                  >
-                    {r}
-                  </a>
-                </li>
-              ))}
+              {refs.map((r) => {
+                // Reference URLs come from third-party CVE / NVD records and
+                // are treated as untrusted. Only render http(s) URLs as
+                // clickable links; other schemes (javascript:, data:, file:,
+                // mailto:, relative paths, embedded credentials, ...) are
+                // shown as plain text via React's default escaping.
+                const safe = safeHref(r);
+                return (
+                  <li key={r} data-testid={`ref-${finding.id}`}>
+                    {safe ? (
+                      <a
+                        href={safe}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="text-primary hover:underline break-all"
+                        data-testid={`link-ref-${finding.id}`}
+                      >
+                        {safe}
+                      </a>
+                    ) : (
+                      <span
+                        className="text-muted-foreground break-all"
+                        title="Reference omitted: not an http(s) URL"
+                        data-testid={`text-ref-unsafe-${finding.id}`}
+                      >
+                        {r}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
 

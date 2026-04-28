@@ -143,10 +143,18 @@ install — make sure `npm install` runs cleanly before running tests.
   as an explicit “Allow private/LAN target” checkbox that only appears once
   the entered target looks private — lab operators must consciously confirm
   each in-network scan.
-- Reference URLs in generated Markdown reports are validated by
-  `sanitizeHref` and rendered as clickable links only when the scheme is
-  `http` or `https`. Any other scheme (`javascript:`, `data:`, `file:`,
-  `mailto:`, etc.) is escaped and shown as text only.
+- Reference URLs are treated as untrusted everywhere they are rendered.
+  Both the server (Markdown reports in `server/lib/report.ts`) and the
+  client (Scan Detail page in `client/src/pages/ScanDetail.tsx`) call the
+  shared `safeHref` helper in `shared/url.ts`, which only accepts
+  syntactically valid `http:` / `https:` URLs without embedded credentials,
+  whitespace, or control characters and caps the length at 2 KB. Any other
+  scheme (`javascript:`, `data:`, `file:`, `mailto:`, `ftp:`, relative
+  paths, garbage, etc.) is rendered as escaped plain text — never as a
+  clickable `<a href>` and never as a Markdown `[link](url)`. The server
+  also re-exports the helper as `sanitizeHref` for backwards compatibility.
+  Both surfaces are unit-tested in `shared/url.test.ts` and
+  `server/lib/report.test.ts`.
 
 ## Reporting a vulnerability
 

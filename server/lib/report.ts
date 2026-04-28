@@ -2,6 +2,7 @@
  * Report rendering helpers — produces JSON and Markdown reports for a scan.
  */
 import type { Finding, Scan, Kev, Epss } from "@shared/schema";
+import { safeHref } from "@shared/url";
 import { prioritizeFindings } from "./severity";
 
 export interface ReportInput {
@@ -244,24 +245,10 @@ function escapeMd(s: string | null | undefined): string {
 
 /** Return the input only if it is a syntactically valid http(s) URL.
  *  All other schemes (javascript:, data:, mailto:, file:, ftp:, etc.) are
- *  rejected and the caller should fall back to plain-text rendering. */
-export function sanitizeHref(s: string | null | undefined): string | null {
-  if (!s) return null;
-  const trimmed = String(s).trim();
-  if (trimmed.length === 0 || trimmed.length > 2048) return null;
-  // Reject anything that isn't strictly http(s). The URL constructor handles
-  // weird inputs without throwing for our purposes.
-  let u: URL;
-  try {
-    u = new URL(trimmed);
-  } catch {
-    return null;
-  }
-  if (u.protocol !== "http:" && u.protocol !== "https:") return null;
-  // Disallow embedded credentials, control characters, and whitespace.
-  if (u.username || u.password) return null;
-  if (/[\s\u0000-\u001f\u007f]/.test(trimmed)) return null;
-  return u.toString();
-}
+ *  rejected and the caller should fall back to plain-text rendering.
+ *
+ *  Thin wrapper around the shared `safeHref` helper so the server has a
+ *  named export for callers that already imported `sanitizeHref`. */
+export const sanitizeHref = safeHref;
 
 export const __test__ = { escapeMd, sanitizeHref };

@@ -16,12 +16,12 @@ All release blockers and strong recommendations have been addressed:
 | ----- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | F-01  | Default bind address              | `server/index.ts` now binds to `127.0.0.1` by default and reads `process.env.HOST` for an explicit override. Any non-loopback bind logs a prominent WARNING at startup. `.env.example`, `README.md`, `docs/SECURITY.md`, `docs/INSTALL-WSL.md`, and `docs/INSTALL-POWERSHELL.md` were updated to match.       |
 | F-02  | Hardcoded `authorizedAck`         | `client/src/pages/NewScan.tsx` now sends the actual checkbox value instead of a hardcoded `true`. The server-side `z.literal(true)` enforcement is unchanged.                                                                                                                                               |
-| F-03  | Reference-link URL validation     | `server/lib/report.ts` adds `sanitizeHref` (only `http:` / `https:`, no credentials, no whitespace, max 2048 chars). Markdown reports render references as clickable links only when `sanitizeHref` returns non-null; everything else is escaped plain text. Covered by new unit tests.                     |
+| F-03  | Reference-link URL validation     | New shared helper `shared/url.ts → safeHref` (only `http:` / `https:`, no credentials, no whitespace, no control chars, max 2048 chars). Used by both `server/lib/report.ts` (Markdown reports) and `client/src/pages/ScanDetail.tsx` (Scan Detail UI). The server also re-exports it as `sanitizeHref` for backwards compatibility. Anything that fails the check is rendered as escaped plain text on both surfaces. Covered by `shared/url.test.ts` and `server/lib/report.test.ts`. |
 | F-04  | Private/LAN target gate           | `shared/schema.ts` adds `classifyIp(ip)`, `RESTRICTED_TARGET_CLASSES`, and an opt-in `allowPrivate: z.literal(true).optional()` field. `server/routes.ts` resolves the target via DNS and rejects private/loopback/link-local/CGNAT/multicast/reserved/IPv6 ULA addresses unless `allowPrivate: true`. The GUI exposes the consent as a checkbox that appears once the entered target *looks* private. |
 | F-05  | Unused production deps            | Removed `@supabase/supabase-js`, `express-session`, `memorystore`, `passport`, `passport-local`, plus the matching `@types/*` devDeps from `package.json`; removed those entries from `script/build.ts` allowlist. `package-lock.json` regenerated; `npm audit --audit-level=moderate` reports 0 vulnerabilities. |
 | F-06  | DB file permissions               | `server/storage.ts` `chmod`s `data.db` and its WAL/SHM sidecars to `0600` at startup on POSIX (skipped on Windows). Documented in `docs/SECURITY.md` under “Database and on-disk data”.                                                                                                                       |
 | F-12  | Docs API path mismatch            | The actual route is `POST /api/feeds/refresh` with `{"source":"nvd"\|"kev"\|"epss"\|"all"}`. `docs/USAGE.md`, `docs/INSTALL-WSL.md`, and `docs/INSTALL-POWERSHELL.md` were updated to match.                                                                                                                  |
-| F-13  | Runtime DB files in version control | `.gitignore` was expanded with `*.db`, `*.db-shm`, `*.db-wal`, `*.db-journal`, and `*.sqlite*`. The DB files were never actually tracked (`git ls-files` was empty for these globs), so this fix is preventative. |
+| F-13  | Runtime DB files in version control | `.gitignore` was expanded with `*.db`, `*.db-shm`, `*.db-wal`, `*.db-journal`, and `*.sqlite*`. Confirmed via `git ls-files` (empty match) and `git log --all -- data.db data.db-shm data.db-wal` (no commits) that the DB files were never tracked and never appeared in any commit — history is clean and no rewrite is required before publishing. |
 
 ### Lower findings (resolved)
 
@@ -127,9 +127,10 @@ All release blockers and strong recommendations have been addressed:
 ## 11. Build and tests
 
 - [x] `npm run typecheck` — clean.
-- [x] `npm test` — 68 tests passing across 4 files
+- [x] `npm test` — 75 tests passing across 5 files
       (`server/lib/ports.test.ts`, `server/lib/severity.test.ts`,
-      `server/lib/report.test.ts`, `shared/schema.test.ts`).
+      `server/lib/report.test.ts`, `shared/schema.test.ts`,
+      `shared/url.test.ts`).
 - [x] `npm run build` — produces `dist/public` and `dist/index.cjs` without
       warnings related to source code.
 - [x] `npm audit --audit-level=moderate` — 0 vulnerabilities.
