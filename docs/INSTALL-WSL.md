@@ -91,9 +91,15 @@ useful immediately. To pull a fresh snapshot from the live feeds, open the
 or call the API directly:
 
 ```bash
-curl -X POST http://localhost:5000/api/feeds/nvd/refresh
-curl -X POST http://localhost:5000/api/feeds/kev/refresh
-curl -X POST http://localhost:5000/api/feeds/epss/refresh
+curl -X POST http://127.0.0.1:5000/api/feeds/refresh \
+  -H 'Content-Type: application/json' -d '{"source":"nvd"}'
+curl -X POST http://127.0.0.1:5000/api/feeds/refresh \
+  -H 'Content-Type: application/json' -d '{"source":"kev"}'
+curl -X POST http://127.0.0.1:5000/api/feeds/refresh \
+  -H 'Content-Type: application/json' -d '{"source":"epss"}'
+# Or refresh all three at once:
+curl -X POST http://127.0.0.1:5000/api/feeds/refresh \
+  -H 'Content-Type: application/json' -d '{"source":"all"}'
 ```
 
 Outbound network access is required for these calls (the feeds are hosted by
@@ -105,8 +111,14 @@ and [FIRST](https://api.first.org/data/v1/epss)).
 
 - **`better-sqlite3` build failure** — make sure `build-essential` is installed
   and `node --version` reports v20+. Then `rm -rf node_modules && npm install`.
-- **Cannot reach `localhost:5000` from Windows** — confirm the dev/prod server
-  is bound to `0.0.0.0` (the template default) and that no Windows Defender
-  Firewall rule is blocking WSL.
+- **Cannot reach `localhost:5000` from Windows** — by default the server only
+  binds to `127.0.0.1` (loopback) for safety. WSL2 forwards `localhost` from
+  Windows to the WSL distribution, so this normally works without any change.
+  If you need to reach the server from another machine on your LAN (rare —
+  SentinelScope ships with no authentication), you must explicitly opt in by
+  exporting `HOST=0.0.0.0` before `npm start`. Doing so exposes the unauthenticated
+  scanner UI to anyone who can reach that interface; gate it behind a firewall,
+  reverse proxy, or VPN. Also confirm no Windows Defender Firewall rule is
+  blocking WSL when troubleshooting connectivity.
 - **Slow filesystem on `/mnt/c/...`** — clone the project under your Linux home
   directory (`~/code/sentinelscope`), not on a mounted Windows drive.

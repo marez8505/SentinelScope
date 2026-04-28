@@ -127,7 +127,7 @@ viewer.
 | GET    | `/api/scans/:id/report.json`      | JSON report                          |
 | PATCH  | `/api/findings/:id`               | Update finding state                 |
 | GET    | `/api/feeds`                      | Feed snapshot status                 |
-| POST   | `/api/feeds/:name/refresh`        | Refresh `nvd` / `kev` / `epss`       |
+| POST   | `/api/feeds/refresh`              | Refresh feeds. Body: `{"source":"nvd"\|"kev"\|"epss"\|"all"}` |
 | GET    | `/api/cves`                       | Search local CVE table               |
 
 All POST/PATCH bodies are validated with Zod. Invalid input returns a `400`

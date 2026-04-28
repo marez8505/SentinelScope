@@ -21,6 +21,44 @@ const EPSS_URL = "https://api.first.org/data/v1/epss";
 
 const FETCH_TIMEOUT_MS = 20_000;
 
+// Bound stored field lengths so a hostile/oversized upstream record cannot
+// bloat the local DB. NVD descriptions are typically <2KB; references rarely
+// exceed a dozen URLs. Conservative ceilings:
+const MAX_DESC_LEN = 4000;
+const MAX_REF_URL_LEN = 2048;
+const MAX_REFS = 64;
+const MAX_CPE_LEN = 512;
+const MAX_CPES = 256;
+
+// NVD keywordSearch parameter — NVD itself rejects very long / odd queries
+// with 4xx, but we validate up front to keep the URL bounded and to avoid
+// passing arbitrary characters through to a remote API.
+const NVD_KEYWORD_MAX = 256;
+const NVD_KEYWORD_RE = /^[A-Za-z0-9 .,_:+\-]+$/;
+export class NvdKeywordError extends Error {
+  constructor(msg: string) {
+    super(msg);
+    this.name = "NvdKeywordError";
+  }
+}
+function validateNvdKeyword(kw: string): string {
+  const trimmed = kw.trim();
+  if (!trimmed) throw new NvdKeywordError("keyword must not be empty");
+  if (trimmed.length > NVD_KEYWORD_MAX) {
+    throw new NvdKeywordError(`keyword exceeds ${NVD_KEYWORD_MAX} characters`);
+  }
+  if (!NVD_KEYWORD_RE.test(trimmed)) {
+    throw new NvdKeywordError(
+      "keyword may only contain letters, digits, spaces, and . , _ : + -",
+    );
+  }
+  return trimmed;
+}
+function clampStr(s: string | null | undefined, max: number): string {
+  if (s == null) return "";
+  return s.length > max ? s.slice(0, max) : s;
+}
+
 async function safeFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
@@ -54,7 +92,8 @@ export async function refreshNvd(opts?: { keyword?: string; resultsPerPage?: num
   const perPage = Math.min(Math.max(opts?.resultsPerPage ?? 100, 1), 200);
   url.searchParams.set("resultsPerPage", String(perPage));
   if (opts?.keyword) {
-    url.searchParams.set("keywordSearch", opts.keyword);
+    // Throws NvdKeywordError on invalid input — caller surfaces as 400.
+    url.searchParams.set("keywordSearch", validateNvdKeyword(opts.keyword));
   }
 
   const headers: Record<string, string> = {};
@@ -106,18 +145,24 @@ function mapNvdCve(entry: any): Cve {
       }
     }
   }
-  const refs = (cve.references || []).map((r: any) => r.url).filter(Boolean);
+  const refs: string[] = [];
+  for (const r of cve.references || []) {
+    if (typeof r?.url !== "string" || !r.url) continue;
+    refs.push(clampStr(r.url, MAX_REF_URL_LEN));
+    if (refs.length >= MAX_REFS) break;
+  }
+  const boundedCpes = cpes.slice(0, MAX_CPES).map((c) => clampStr(c, MAX_CPE_LEN));
   return {
-    cveId: id,
-    description: desc,
-    cvssV3Score: v3?.baseScore ?? null,
-    cvssV3Severity: v3?.baseSeverity ?? null,
-    cvssVector: v3?.vectorString ?? null,
-    cpes: JSON.stringify(cpes),
+    cveId: clampStr(id, 64),
+    description: clampStr(desc, MAX_DESC_LEN),
+    cvssV3Score: typeof v3?.baseScore === "number" ? v3.baseScore : null,
+    cvssV3Severity: clampStr(v3?.baseSeverity, 16) || null,
+    cvssVector: clampStr(v3?.vectorString, 128) || null,
+    cpes: JSON.stringify(boundedCpes),
     keywords: JSON.stringify([]),
     references: JSON.stringify(refs),
-    publishedDate: cve.published ?? null,
-    lastModifiedDate: cve.lastModified ?? null,
+    publishedDate: clampStr(cve.published, 64) || null,
+    lastModifiedDate: clampStr(cve.lastModified, 64) || null,
     raw: null,
   };
 }

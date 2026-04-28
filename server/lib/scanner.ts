@@ -15,7 +15,7 @@
  *   - Modifying remote systems
  */
 import { lookup } from "node:dns/promises";
-import { Socket } from "node:net";
+import { Socket, isIP } from "node:net";
 import { connect as tlsConnect, type TLSSocket } from "node:tls";
 import { request as httpsRequest } from "node:https";
 import { request as httpRequest } from "node:http";
@@ -91,11 +91,14 @@ export interface ScanContext {
   epssMap: Map<string, number>;
 }
 
-/** Resolve DNS A record (IPv4 first); IP literals pass through unchanged. */
+/** Resolve DNS A/AAAA record; IP literals (v4 or v6, optionally bracketed)
+ *  pass through unchanged. We strip surrounding brackets so the rest of the
+ *  pipeline always sees a bare IP. */
 export async function resolveTarget(target: string): Promise<string> {
-  // detect IPv4 / IPv6 literal
-  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(target)) return target;
-  if (/^[0-9a-fA-F:]+$/.test(target) && target.includes(":")) return target;
+  const stripped = target.startsWith("[") && target.endsWith("]")
+    ? target.slice(1, -1)
+    : target;
+  if (isIP(stripped) !== 0) return stripped;
   const r = await lookup(target);
   return r.address;
 }

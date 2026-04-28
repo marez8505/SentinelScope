@@ -12,6 +12,29 @@ import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle } from "lucide-react";
 
+/**
+ * Quick textual heuristic for hostnames that obviously refer to private/local
+ * space. Used only to decide whether to show the LAN-consent checkbox — the
+ * authoritative check happens on the server after DNS resolution.
+ */
+function isPrivateLikeText(t: string): boolean {
+  const v = t.trim().toLowerCase().replace(/^\[|\]$/g, "");
+  if (!v) return false;
+  if (v === "localhost" || v.endsWith(".localhost") || v.endsWith(".local") || v.endsWith(".internal") || v.endsWith(".lan")) return true;
+  if (v === "::1" || v === "0:0:0:0:0:0:0:1") return true;
+  if (/^fe80:/i.test(v) || /^fc[0-9a-f]{2}:/i.test(v) || /^fd[0-9a-f]{2}:/i.test(v)) return true;
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(v);
+  if (m) {
+    const [a, b] = [parseInt(m[1], 10), parseInt(m[2], 10)];
+    if (a === 127 || a === 10 || a === 0) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+  }
+  return false;
+}
+
 const PROFILES = [
   { id: "quick", title: "Quick", desc: "22, 80, 443 — under 5 seconds typical." },
   { id: "standard", title: "Standard", desc: "Common service ports (21, 22, 25, 80, 443, 3306, 3389, 5432, 8080, 8443…)." },
@@ -27,15 +50,24 @@ export default function NewScan() {
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
+  const [allowPrivate, setAllowPrivate] = useState(false);
+
   const queryClient = useQueryClient();
   const create = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/scans", {
+      // Send the actual checkbox state. The server-side schema uses
+      // z.literal(true), so a missing or false value is rejected with 400 —
+      // we intentionally do not coerce or default this value here.
+      // allowPrivate is sent only when explicitly checked, so the schema's
+      // z.literal(true).optional() accepts it.
+      const body: Record<string, unknown> = {
         target,
         profile,
         customPorts: profile === "custom" ? customPorts : undefined,
-        authorizedAck: true,
-      });
+        authorizedAck,
+      };
+      if (allowPrivate) body.allowPrivate = true;
+      const res = await apiRequest("POST", "/api/scans", body);
       return res.json();
     },
     onSuccess: (d) => {
@@ -50,6 +82,11 @@ export default function NewScan() {
   });
 
   const disabled = !authorizedAck || !target || (profile === "custom" && !customPorts) || create.isPending;
+
+  // Heuristic only — the server enforces the actual policy after DNS resolution.
+  // We surface the advanced consent UI when the typed string already looks
+  // private/loopback so the user is not surprised by a 400.
+  const looksPrivate = isPrivateLikeText(target);
 
   return (
     <>
@@ -135,7 +172,7 @@ export default function NewScan() {
                   <Checkbox
                     data-testid="checkbox-authorized"
                     checked={authorizedAck}
-                    onCheckedChange={(v) => setAuthorizedAck(Boolean(v))}
+                    onCheckedChange={(v) => setAuthorizedAck(v === true)}
                   />
                   <span className="text-sm">
                     I am the owner of <span className="font-mono">{target || "this target"}</span> or have
@@ -145,6 +182,37 @@ export default function NewScan() {
               </div>
             </div>
           </div>
+
+          {looksPrivate && (
+            <div
+              data-testid="section-allow-private"
+              className="rounded-md border border-amber-500/40 bg-amber-500/10 p-4"
+            >
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium mb-2">Private / loopback target</p>
+                  <p className="text-muted-foreground mb-3">
+                    This target resolves to loopback, link-local, or RFC 1918 private
+                    address space. By default SentinelScope blocks these to reduce
+                    SSRF and LAN-pivot risk. Enable only if this is an authorized
+                    lab host you operate yourself.
+                  </p>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <Checkbox
+                      data-testid="checkbox-allow-private"
+                      checked={allowPrivate}
+                      onCheckedChange={(v) => setAllowPrivate(v === true)}
+                    />
+                    <span className="text-sm">
+                      I acknowledge this target is a private/local host I am authorized
+                      to assess.
+                    </span>
+                  </label>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-end gap-2">
             <Button

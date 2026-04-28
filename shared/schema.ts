@@ -174,8 +174,69 @@ export const newScanRequestSchema = z.object({
   authorizedAck: z.literal(true, {
     errorMap: () => ({ message: "You must acknowledge authorization" }),
   }),
+  // Explicit opt-in for scanning private / loopback / link-local addresses
+  // (lab hosts the operator owns). Omitted or false means "no, block them".
+  // Only the value `true` is accepted, to mirror authorizedAck semantics.
+  allowPrivate: z
+    .literal(true, { errorMap: () => ({ message: "Must be true if provided" }) })
+    .optional(),
 });
 export type NewScanRequest = z.infer<typeof newScanRequestSchema>;
+
+/** Classify an IP address (or a hostname's resolved IP) into network-trust
+ *  buckets so we can apply a default-block policy on private space. */
+export type TargetClass =
+  | "public"
+  | "loopback"
+  | "link-local"
+  | "private"
+  | "cgnat"
+  | "multicast"
+  | "reserved"
+  | "unknown";
+
+export function classifyIp(ip: string): TargetClass {
+  if (!ip) return "unknown";
+  const v = ip.toLowerCase().replace(/^\[|\]$/g, "").split("%")[0];
+  // IPv4
+  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(v);
+  if (m) {
+    const [a, b] = [parseInt(m[1], 10), parseInt(m[2], 10)];
+    if (a === 127) return "loopback";
+    if (a === 10) return "private";
+    if (a === 192 && b === 168) return "private";
+    if (a === 172 && b >= 16 && b <= 31) return "private";
+    if (a === 169 && b === 254) return "link-local";
+    if (a === 100 && b >= 64 && b <= 127) return "cgnat";
+    if (a === 0) return "reserved";
+    if (a >= 224 && a <= 239) return "multicast";
+    if (a >= 240) return "reserved";
+    return "public";
+  }
+  // IPv6
+  if (v.includes(":")) {
+    if (v === "::1" || v === "0:0:0:0:0:0:0:1") return "loopback";
+    if (v === "::" || v === "0:0:0:0:0:0:0:0") return "reserved";
+    if (/^fe[89ab][0-9a-f]:/i.test(v)) return "link-local";
+    if (/^f[cd][0-9a-f]{2}:/i.test(v)) return "private"; // ULA fc00::/7
+    if (/^ff[0-9a-f]{2}:/i.test(v)) return "multicast";
+    // IPv4-mapped (::ffff:a.b.c.d) — classify by the embedded v4
+    const mapped = /::ffff:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/i.exec(v);
+    if (mapped) return classifyIp(mapped[1]);
+    return "public";
+  }
+  return "unknown";
+}
+
+/** Classes that require explicit allowPrivate=true to scan. */
+export const RESTRICTED_TARGET_CLASSES: ReadonlySet<TargetClass> = new Set([
+  "loopback",
+  "link-local",
+  "private",
+  "cgnat",
+  "multicast",
+  "reserved",
+]);
 
 export const findingStatusSchema = z.enum(["open", "accepted_risk", "resolved"]);
 

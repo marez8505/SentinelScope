@@ -5,7 +5,31 @@ the categories of issues that have a track record of going wrong in
 "vulnerability scanner with a web GUI" projects, with the relevant code
 paths in this repository.
 
-Last reviewed: SentinelScope v1.0.0.
+Last reviewed: SentinelScope v1.0.0 — post independent review.
+
+## Independent review findings (resolved)
+
+An external review of the v1.0.0 codebase produced findings F-01 through F-13.
+All release blockers and strong recommendations have been addressed:
+
+| ID    | Area                              | Resolution                                                                                                                                                                                                                                                                                                  |
+| ----- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F-01  | Default bind address              | `server/index.ts` now binds to `127.0.0.1` by default and reads `process.env.HOST` for an explicit override. Any non-loopback bind logs a prominent WARNING at startup. `.env.example`, `README.md`, `docs/SECURITY.md`, `docs/INSTALL-WSL.md`, and `docs/INSTALL-POWERSHELL.md` were updated to match.       |
+| F-02  | Hardcoded `authorizedAck`         | `client/src/pages/NewScan.tsx` now sends the actual checkbox value instead of a hardcoded `true`. The server-side `z.literal(true)` enforcement is unchanged.                                                                                                                                               |
+| F-03  | Reference-link URL validation     | `server/lib/report.ts` adds `sanitizeHref` (only `http:` / `https:`, no credentials, no whitespace, max 2048 chars). Markdown reports render references as clickable links only when `sanitizeHref` returns non-null; everything else is escaped plain text. Covered by new unit tests.                     |
+| F-04  | Private/LAN target gate           | `shared/schema.ts` adds `classifyIp(ip)`, `RESTRICTED_TARGET_CLASSES`, and an opt-in `allowPrivate: z.literal(true).optional()` field. `server/routes.ts` resolves the target via DNS and rejects private/loopback/link-local/CGNAT/multicast/reserved/IPv6 ULA addresses unless `allowPrivate: true`. The GUI exposes the consent as a checkbox that appears once the entered target *looks* private. |
+| F-05  | Unused production deps            | Removed `@supabase/supabase-js`, `express-session`, `memorystore`, `passport`, `passport-local`, plus the matching `@types/*` devDeps from `package.json`; removed those entries from `script/build.ts` allowlist. `package-lock.json` regenerated; `npm audit --audit-level=moderate` reports 0 vulnerabilities. |
+| F-06  | DB file permissions               | `server/storage.ts` `chmod`s `data.db` and its WAL/SHM sidecars to `0600` at startup on POSIX (skipped on Windows). Documented in `docs/SECURITY.md` under “Database and on-disk data”.                                                                                                                       |
+| F-12  | Docs API path mismatch            | The actual route is `POST /api/feeds/refresh` with `{"source":"nvd"\|"kev"\|"epss"\|"all"}`. `docs/USAGE.md`, `docs/INSTALL-WSL.md`, and `docs/INSTALL-POWERSHELL.md` were updated to match.                                                                                                                  |
+| F-13  | Runtime DB files in version control | `.gitignore` was expanded with `*.db`, `*.db-shm`, `*.db-wal`, `*.db-journal`, and `*.sqlite*`. The DB files were never actually tracked (`git ls-files` was empty for these globs), so this fix is preventative. |
+
+### Lower findings (resolved)
+
+- **Markdown escaping** — `escapeMd` now also escapes `*` and `_`, escapes `#`/`-`/`+` when at line-start or after whitespace, and collapses CR/LF/CRLF to a single space so a multi-line banner cannot break out of a Markdown table row. New unit tests exercise each rule.
+- **NVD keyword validation** — `server/feeds.ts` adds `validateNvdKeyword`: max 256 characters, allowed character set `[A-Za-z0-9 .,_:+\-]`. Throws `NvdKeywordError` for invalid input.
+- **NVD field bounds** — `mapNvdCve` now clamps `description` (≤4 KB), reference URLs (≤2 KB each, max 64 entries), CPE strings (≤512 B each, max 256 entries), and the score / severity / vector / date fields to conservative ceilings. Hostile or oversized upstream records can no longer bloat the local DB.
+- **IPv6 validation** — `server/lib/scanner.ts → resolveTarget` uses `net.isIP()` from `node:net` and strips `[…]` brackets before resolving, replacing the previous custom IPv6 regex.
+- **TLS `rejectUnauthorized: false`** — documented: HTTPS metadata probes intentionally accept self-signed and expired certificates because gathering certificate evidence is the whole point of the probe; the certificate is captured into the finding, never trusted for anything else.
 
 ---
 
@@ -103,11 +127,12 @@ Last reviewed: SentinelScope v1.0.0.
 ## 11. Build and tests
 
 - [x] `npm run typecheck` — clean.
-- [x] `npm test` — 42 tests passing across 4 files
+- [x] `npm test` — 68 tests passing across 4 files
       (`server/lib/ports.test.ts`, `server/lib/severity.test.ts`,
       `server/lib/report.test.ts`, `shared/schema.test.ts`).
 - [x] `npm run build` — produces `dist/public` and `dist/index.cjs` without
       warnings related to source code.
+- [x] `npm audit --audit-level=moderate` — 0 vulnerabilities.
 
 ## 12. Documentation completeness
 
@@ -117,7 +142,8 @@ Last reviewed: SentinelScope v1.0.0.
 - [x] `docs/SAFE-SCANNING.md` — what is and isn't implemented, and why.
 - [x] `docs/SECURITY.md` — application security posture and threat model.
 - [x] `docs/INSTALL-WSL.md` and `docs/INSTALL-POWERSHELL.md` — install paths.
-- [x] `.env.example` — `PORT`, `NVD_API_KEY` keys.
+- [x] `.env.example` — `HOST`, `PORT`, `NVD_API_KEY` keys, with a prominent
+      network-exposure warning above `HOST`.
 
 ---
 

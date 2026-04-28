@@ -50,10 +50,18 @@ See [`docs/SAFE-SCANNING.md`](docs/SAFE-SCANNING.md) and
 
 ```bash
 npm install
-cp .env.example .env        # optional — only for NVD_API_KEY / PORT
+cp .env.example .env        # optional — NVD_API_KEY, PORT, HOST
 npm run build
-npm start                   # http://localhost:5000
+npm start                   # http://127.0.0.1:5000 (loopback only by default)
 ```
+
+> **Network exposure:** the server binds to `127.0.0.1` (loopback) by default.
+> Set `HOST=0.0.0.0` only when you have explicit need to reach the GUI from
+> another host *and* you have an authenticating reverse proxy, firewall, or
+> VPN in front of it. SentinelScope itself ships with no authentication; do
+> not expose it raw to a network. The server logs a clear warning at startup
+> whenever the bind address is anything other than loopback. See
+> [docs/SECURITY.md](docs/SECURITY.md#network-exposure).
 
 For development:
 

@@ -6,9 +6,11 @@ import {
   newScanRequestSchema,
   refreshFeedRequestSchema,
   updateFindingStatusSchema,
+  classifyIp,
+  RESTRICTED_TARGET_CLASSES,
 } from "@shared/schema";
 import { profilePorts } from "./lib/ports";
-import { runScan } from "./lib/scanner";
+import { runScan, resolveTarget } from "./lib/scanner";
 import { renderJson, renderMarkdown } from "./lib/report";
 import { refreshNvd, refreshKev, refreshEpss } from "./feeds";
 import { seedCves, seedKev, seedEpss } from "./seed";
@@ -160,6 +162,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) {
       return res.status(400).json({ message: e?.message || "Invalid ports" });
     }
+
+    // Resolve the target up-front so we can classify it before creating any
+    // scan record. Hostnames that resolve to private/loopback/link-local space
+    // are blocked unless the operator opted in via allowPrivate=true.
+    let resolvedIp: string;
+    try {
+      resolvedIp = await resolveTarget(parsed.data.target);
+    } catch (e: any) {
+      return res.status(400).json({
+        message: `Could not resolve target: ${String(e?.message || e)}`,
+      });
+    }
+    const cls = classifyIp(resolvedIp);
+    if (RESTRICTED_TARGET_CLASSES.has(cls) && !parsed.data.allowPrivate) {
+      return res.status(400).json({
+        message:
+          `Target ${parsed.data.target} resolves to ${resolvedIp} (${cls}). ` +
+          `Scanning private, loopback, or link-local hosts requires explicit ` +
+          `acknowledgment. Re-submit with allowPrivate: true if this is an ` +
+          `authorized lab host you operate.`,
+        targetClass: cls,
+        resolvedIp,
+      });
+    }
+
     const scan = await storage.createScan({
       target: parsed.data.target,
       profile: parsed.data.profile,
@@ -168,9 +195,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       startedAt: Date.now(),
       status: "running",
     });
+    // Persist the resolved IP eagerly so the scan record is informative even
+    // before runScan() completes.
+    try {
+      await storage.updateScan(scan.id, { resolvedIp });
+    } catch {}
     // Run asynchronously so the API responds quickly.
     void startScan(scan.id, scan.target, ports);
-    res.status(202).json({ id: scan.id, status: "running" });
+    res.status(202).json({ id: scan.id, status: "running", resolvedIp, targetClass: cls });
   });
 
   // ---- Findings ----

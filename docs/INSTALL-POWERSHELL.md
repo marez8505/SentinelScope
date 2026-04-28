@@ -90,9 +90,15 @@ Use the **Vulnerability Feed** page in the GUI and click **Refresh** on each
 card. Or, from PowerShell:
 
 ```powershell
-Invoke-RestMethod -Method Post -Uri http://localhost:5000/api/feeds/nvd/refresh
-Invoke-RestMethod -Method Post -Uri http://localhost:5000/api/feeds/kev/refresh
-Invoke-RestMethod -Method Post -Uri http://localhost:5000/api/feeds/epss/refresh
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/api/feeds/refresh `
+  -ContentType 'application/json' -Body '{"source":"nvd"}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/api/feeds/refresh `
+  -ContentType 'application/json' -Body '{"source":"kev"}'
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/api/feeds/refresh `
+  -ContentType 'application/json' -Body '{"source":"epss"}'
+# Or refresh all three at once:
+Invoke-RestMethod -Method Post -Uri http://127.0.0.1:5000/api/feeds/refresh `
+  -ContentType 'application/json' -Body '{"source":"all"}'
 ```
 
 Outbound network access is required to reach

@@ -87,19 +87,30 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  // Bind to loopback by default — SentinelScope ships with no authentication and
+  // no transport security, so binding to all interfaces would expose scanning,
+  // report download, and feed refresh endpoints to anything that can reach the
+  // host. Operators who explicitly need LAN access must opt in via the HOST env
+  // var (e.g. HOST=0.0.0.0) and front the service with a reverse proxy that
+  // adds authentication.
   const port = parseInt(process.env.PORT || "5000", 10);
+  const host = process.env.HOST?.trim() || "127.0.0.1";
+  const exposed = host !== "127.0.0.1" && host !== "::1" && host !== "localhost";
   httpServer.listen(
     {
       port,
-      host: "0.0.0.0",
+      host,
       reusePort: true,
     },
     () => {
-      log(`serving on port ${port}`);
+      log(`serving on http://${host}:${port}`);
+      if (exposed) {
+        log(
+          `WARNING: HOST=${host} exposes SentinelScope beyond loopback. ` +
+            `There is no built-in authentication. Restrict access via firewall ` +
+            `and/or an authenticating reverse proxy before continuing.`,
+        );
+      }
     },
   );
 })();

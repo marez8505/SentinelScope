@@ -20,8 +20,12 @@ defend against are:
 - **Resource exhaustion** from a runaway scan or burst of API calls.
 
 **Out of scope.** SentinelScope is a single-tenant local tool. It does not
-implement authentication, multi-user RBAC, or hardened transport — bind it to
-`localhost` and front it with a reverse proxy if you need those.
+implement authentication, multi-user RBAC, or hardened transport. The server
+defaults to binding `127.0.0.1` (loopback only). If you need to reach it from
+another host, set `HOST=0.0.0.0` *only* behind a trusted reverse proxy that
+adds authentication, or restrict access with a firewall / VPN. Exposing the
+raw Express server to a network without one of those in front of it is
+unsupported.
 
 ## Input validation
 
@@ -95,9 +99,16 @@ embedded quotes and control characters safely.
 
 ## Database and on-disk data
 
-- The SQLite database (`data.db`) is created in the project directory with
-  default permissions. If the host is multi-user, `chmod 600 data.db` after
-  first run.
+- The SQLite database (`data.db`) is created in the project directory. On
+  POSIX hosts, the server `chmod`s `data.db`, `data.db-wal`, and
+  `data.db-shm` to `0600` at startup so only the running user can read or
+  write them. On Windows hosts the equivalent NTFS ACL is the operator's
+  responsibility — store the project under a per-user profile directory and
+  avoid sharing the parent folder.
+- The DB and its WAL/SHM sidecars are listed in `.gitignore` and must never
+  be committed.
+- Runtime DB files (`*.db`, `*.db-wal`, `*.db-shm`) must be excluded from
+  any backup or artifact bundle that crosses a trust boundary.
 - Findings, evidence, and references are stored as JSON columns. The
   `references` column is quoted (`"references"`) because it is a SQL
   reserved word — keep that quoting if you extend the DDL.
@@ -117,6 +128,25 @@ install — make sure `npm install` runs cleanly before running tests.
   `indexedDB`, or cookies. Theme is derived from `prefers-color-scheme`.
 - The frontend uses TanStack Query for all HTTP. There is no `dangerouslySet
   InnerHTML` against scan output anywhere in the UI.
+
+## Network exposure
+
+- The Express server binds to `127.0.0.1` by default. Set `HOST` in `.env`
+  (or as an environment variable) to override; the server logs a clear
+  warning at startup whenever the bind address is anything other than
+  loopback.
+- The scan-creation endpoint resolves the requested target via DNS and
+  rejects any address that classifies as loopback, link-local, IPv4 private
+  (RFC 1918), CGNAT (`100.64.0.0/10`), multicast/reserved, IPv6 unique-local
+  (`fc00::/7`), IPv6 link-local (`fe80::/10`), or IPv4-mapped IPv6, unless
+  the request body sets `allowPrivate: true`. The GUI surfaces this opt-in
+  as an explicit “Allow private/LAN target” checkbox that only appears once
+  the entered target looks private — lab operators must consciously confirm
+  each in-network scan.
+- Reference URLs in generated Markdown reports are validated by
+  `sanitizeHref` and rendered as clickable links only when the scheme is
+  `http` or `https`. Any other scheme (`javascript:`, `data:`, `file:`,
+  `mailto:`, etc.) is escaped and shown as text only.
 
 ## Reporting a vulnerability
 

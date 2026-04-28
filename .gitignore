@@ -2,11 +2,19 @@ node_modules/
 dist/
 .vite/
 
-# SQLite database files — never commit; exposes demo data at rest
+# SQLite database files — never commit; runtime state, may contain scan history.
 data.db
 data.db-shm
 data.db-wal
 data.db-journal
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
 
 .env
 .env.*

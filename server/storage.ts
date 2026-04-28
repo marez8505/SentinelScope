@@ -19,10 +19,25 @@ import {
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import Database from "better-sqlite3";
 import { eq, desc, and, inArray } from "drizzle-orm";
+import { chmodSync } from "node:fs";
 
-const sqlite = new Database("data.db");
+const DB_PATH = "data.db";
+const sqlite = new Database(DB_PATH);
 sqlite.pragma("journal_mode = WAL");
 sqlite.pragma("foreign_keys = ON");
+
+// Restrict DB file permissions on POSIX systems. The SQLite WAL/SHM sidecar
+// files inherit perms from the main DB on creation, but we re-chmod them too
+// after they appear (best-effort; never fatal).
+if (process.platform !== "win32") {
+  for (const path of [DB_PATH, `${DB_PATH}-wal`, `${DB_PATH}-shm`]) {
+    try {
+      chmodSync(path, 0o600);
+    } catch {
+      // File may not exist yet (WAL/SHM created lazily) — ignored.
+    }
+  }
+}
 
 // Lightweight inline migrations (template avoids drizzle-kit at runtime).
 sqlite.exec(`

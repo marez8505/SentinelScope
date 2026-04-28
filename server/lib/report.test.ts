@@ -123,4 +123,64 @@ describe("escapeMd", () => {
     expect(__test__.escapeMd(null)).toBe("");
     expect(__test__.escapeMd(undefined)).toBe("");
   });
+  it("escapes emphasis markers so attacker text cannot italicize/bold", () => {
+    expect(__test__.escapeMd("a*b_c")).toBe("a\\*b\\_c");
+  });
+  it("escapes leading-line metacharacters so headings/lists/quotes don't inject", () => {
+    // CR/LF collapse to a single space, then leading-of-virtual-line
+    // metachars are escaped. Note that `>` is converted to `&gt;` by the
+    // angle-bracket protection (so it can never be a Markdown blockquote
+    // marker either way).
+    expect(__test__.escapeMd("hello\n# heading")).toBe("hello \\# heading");
+    expect(__test__.escapeMd("hello\n- item")).toBe("hello \\- item");
+    expect(__test__.escapeMd("hello\n> quote")).toBe("hello &gt; quote");
+    expect(__test__.escapeMd("hello\n+ plus")).toBe("hello \\+ plus");
+  });
+  it("collapses CR/LF/CRLF to spaces so banners cannot break out of table rows", () => {
+    expect(__test__.escapeMd("a\nb\r\nc\rd")).toBe("a b c d");
+  });
+});
+
+describe("sanitizeHref", () => {
+  const ok = __test__.sanitizeHref;
+  it("accepts http and https URLs", () => {
+    expect(ok("http://example.com/x")).toBe("http://example.com/x");
+    expect(ok("https://nvd.nist.gov/vuln/detail/CVE-1")).toBe("https://nvd.nist.gov/vuln/detail/CVE-1");
+  });
+  it("rejects javascript:, data:, mailto:, ftp:, file:", () => {
+    expect(ok("javascript:alert(1)")).toBeNull();
+    expect(ok("data:text/html,<script>x</script>")).toBeNull();
+    expect(ok("mailto:a@b.com")).toBeNull();
+    expect(ok("ftp://example.com/file")).toBeNull();
+    expect(ok("file:///etc/passwd")).toBeNull();
+  });
+  it("rejects relative paths and bare strings", () => {
+    expect(ok("/etc/passwd")).toBeNull();
+    expect(ok("example.com")).toBeNull();
+    expect(ok("")).toBeNull();
+  });
+  it("rejects URLs with embedded credentials or whitespace", () => {
+    expect(ok("http://user:pw@example.com")).toBeNull();
+    expect(ok("http://example.com/foo bar")).toBeNull();
+  });
+});
+
+describe("renderMarkdown references", () => {
+  it("renders only http(s) references as links; others as escaped text", () => {
+    const f = {
+      ...findings[0],
+      references: JSON.stringify([
+        "https://example.com/a",
+        "javascript:alert(1)",
+        "data:text/html,<script>x</script>",
+        "not-a-url",
+      ]),
+    };
+    const md = renderMarkdown({ scan: baseScan as any, findings: [f] as any, kev: [], epss: [] });
+    expect(md).toContain("[https://example.com/a](https://example.com/a)");
+    // javascript: must NOT appear inside a link target
+    expect(md).not.toMatch(/\]\(javascript:/);
+    // data: must NOT appear inside a link target
+    expect(md).not.toMatch(/\]\(data:/);
+  });
 });

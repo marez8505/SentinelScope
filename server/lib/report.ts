@@ -191,7 +191,18 @@ export function renderMarkdown(input: ReportInput): string {
     if (f.references.length) {
       lines.push("**References**");
       lines.push("");
-      for (const r of f.references) lines.push(`- ${escapeMd(r)}`);
+      for (const r of f.references) {
+        // Only render hyperlinks for safe http/https URLs. Anything else
+        // (mailto:, javascript:, data:, ftp:, relative paths, garbage) is
+        // shown as escaped plain text so the rendered Markdown can never
+        // produce a clickable javascript: or data: link.
+        const safe = sanitizeHref(r);
+        if (safe) {
+          lines.push(`- [${escapeMd(safe)}](${safe})`);
+        } else {
+          lines.push(`- ${escapeMd(r)}`);
+        }
+      }
       lines.push("");
     }
   }
@@ -208,14 +219,49 @@ export function renderMarkdown(input: ReportInput): string {
   return lines.join("\n");
 }
 
-/** Defensive Markdown escaping for fields that came from network responses or user input. */
+/** Defensive Markdown escaping for fields that came from network responses or
+ *  user input. Escapes:
+ *   - backslash, pipe, backtick — to keep table cells and code spans intact;
+ *   - <, > — so any rendered HTML fragment becomes literal text;
+ *   - leading-line metacharacters (#, *, _, -) so attacker-controlled text
+ *     cannot inject headings, lists, or emphasis;
+ *   - bare newlines collapse to spaces so a multi-line banner can't break
+ *     out of a table row.
+ */
 function escapeMd(s: string | null | undefined): string {
   if (s == null) return "";
   return String(s)
+    .replace(/\r\n?|\n/g, " ")
     .replace(/\\/g, "\\\\")
     .replace(/\|/g, "\\|")
     .replace(/`/g, "\\`")
+    .replace(/[*_]/g, (c) => "\\" + c)
+    // `>` is intentionally omitted here — the angle-bracket replacement
+    // below converts it to `&gt;`, which is harmless at line-start.
+    .replace(/(^|[\s])([#\-+])/g, (_m, sp, ch) => sp + "\\" + ch)
     .replace(/[<>]/g, (c) => (c === "<" ? "&lt;" : "&gt;"));
 }
 
-export const __test__ = { escapeMd };
+/** Return the input only if it is a syntactically valid http(s) URL.
+ *  All other schemes (javascript:, data:, mailto:, file:, ftp:, etc.) are
+ *  rejected and the caller should fall back to plain-text rendering. */
+export function sanitizeHref(s: string | null | undefined): string | null {
+  if (!s) return null;
+  const trimmed = String(s).trim();
+  if (trimmed.length === 0 || trimmed.length > 2048) return null;
+  // Reject anything that isn't strictly http(s). The URL constructor handles
+  // weird inputs without throwing for our purposes.
+  let u: URL;
+  try {
+    u = new URL(trimmed);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+  // Disallow embedded credentials, control characters, and whitespace.
+  if (u.username || u.password) return null;
+  if (/[\s\u0000-\u001f\u007f]/.test(trimmed)) return null;
+  return u.toString();
+}
+
+export const __test__ = { escapeMd, sanitizeHref };
