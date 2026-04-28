@@ -1,0 +1,207 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Inter (body) + JetBrains Mono (data/code) — loaded via CDN in index.html. */
+
+/* ============================================================
+ * SentinelScope theme
+ * Restrained cyber/security palette: cool slate surfaces,
+ * single cyan accent, warm semantic colors. Optimised for dark mode.
+ * ============================================================ */
+
+/* LIGHT MODE */
+:root {
+  --button-outline: rgba(8, 30, 36, 0.10);
+  --badge-outline: rgba(8, 30, 36, 0.06);
+  --opaque-button-border-intensity: -8;
+  --elevate-1: rgba(8, 30, 36, 0.04);
+  --elevate-2: rgba(8, 30, 36, 0.09);
+
+  --background: 210 18% 98%;
+  --foreground: 215 25% 12%;
+  --border: 210 14% 87%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 25% 12%;
+  --card-border: 210 14% 90%;
+
+  --sidebar: 215 28% 14%;
+  --sidebar-foreground: 210 14% 86%;
+  --sidebar-border: 215 28% 18%;
+  --sidebar-primary: 187 92% 43%;
+  --sidebar-primary-foreground: 215 28% 10%;
+  --sidebar-accent: 215 28% 20%;
+  --sidebar-accent-foreground: 210 14% 95%;
+  --sidebar-ring: 187 92% 43%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 25% 12%;
+  --popover-border: 210 14% 87%;
+
+  --primary: 187 92% 33%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 14% 92%;
+  --secondary-foreground: 215 25% 18%;
+  --muted: 210 14% 94%;
+  --muted-foreground: 215 12% 42%;
+  --accent: 210 14% 90%;
+  --accent-foreground: 215 25% 12%;
+  --destructive: 354 75% 44%;
+  --destructive-foreground: 0 0% 100%;
+
+  --warning: 32 92% 42%;
+  --warning-foreground: 0 0% 100%;
+  --success: 152 60% 32%;
+  --success-foreground: 0 0% 100%;
+
+  --input: 210 14% 80%;
+  --ring: 187 92% 33%;
+
+  --chart-1: 187 92% 35%;
+  --chart-2: 354 75% 48%;
+  --chart-3: 32 92% 48%;
+  --chart-4: 220 65% 55%;
+  --chart-5: 268 50% 55%;
+
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Menlo, monospace;
+  --radius: 0.5rem;
+
+  --shadow-sm: 0px 1px 2px 0 rgba(8, 30, 36, 0.05);
+  --shadow: 0px 1px 3px 0 rgba(8, 30, 36, 0.06), 0px 1px 2px -1px rgba(8, 30, 36, 0.06);
+  --shadow-md: 0px 4px 8px -2px rgba(8, 30, 36, 0.07);
+  --shadow-lg: 0px 12px 24px -8px rgba(8, 30, 36, 0.10);
+}
+
+/* DARK MODE — primary visual identity */
+.dark {
+  --button-outline: rgba(255, 255, 255, 0.10);
+  --badge-outline: rgba(255, 255, 255, 0.06);
+  --opaque-button-border-intensity: 9;
+  --elevate-1: rgba(255, 255, 255, 0.04);
+  --elevate-2: rgba(255, 255, 255, 0.09);
+
+  --background: 215 30% 7%;
+  --foreground: 210 18% 92%;
+  --border: 215 25% 16%;
+  --card: 215 30% 10%;
+  --card-foreground: 210 18% 92%;
+  --card-border: 215 25% 16%;
+
+  --sidebar: 215 35% 5%;
+  --sidebar-foreground: 210 14% 78%;
+  --sidebar-border: 215 28% 13%;
+  --sidebar-primary: 187 92% 50%;
+  --sidebar-primary-foreground: 215 28% 8%;
+  --sidebar-accent: 215 25% 14%;
+  --sidebar-accent-foreground: 210 18% 95%;
+  --sidebar-ring: 187 92% 50%;
+
+  --popover: 215 30% 10%;
+  --popover-foreground: 210 18% 92%;
+  --popover-border: 215 25% 16%;
+
+  --primary: 187 92% 48%;
+  --primary-foreground: 215 28% 8%;
+  --secondary: 215 25% 16%;
+  --secondary-foreground: 210 18% 92%;
+  --muted: 215 25% 14%;
+  --muted-foreground: 215 12% 60%;
+  --accent: 215 25% 14%;
+  --accent-foreground: 210 18% 92%;
+  --destructive: 354 75% 55%;
+  --destructive-foreground: 0 0% 100%;
+
+  --warning: 32 92% 55%;
+  --warning-foreground: 215 28% 8%;
+  --success: 152 55% 48%;
+  --success-foreground: 215 28% 8%;
+
+  --input: 215 25% 22%;
+  --ring: 187 92% 48%;
+
+  --chart-1: 187 92% 50%;
+  --chart-2: 354 75% 60%;
+  --chart-3: 32 92% 60%;
+  --chart-4: 220 65% 65%;
+  --chart-5: 268 60% 65%;
+
+  --shadow-sm: 0px 1px 2px 0 rgba(0, 0, 0, 0.4);
+  --shadow: 0px 1px 3px 0 rgba(0, 0, 0, 0.4), 0px 1px 2px -1px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0px 4px 8px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0px 12px 24px -8px rgba(0, 0, 0, 0.7);
+}
+
+@layer base {
+  * { @apply border-border; }
+  body { @apply font-sans antialiased bg-background text-foreground; }
+  code, pre, .mono { font-family: var(--font-mono); }
+}
+
+/* Severity badges — used across pages */
+@layer components {
+  .sev-critical { background-color: hsl(354 75% 55% / 0.15); color: hsl(354 90% 70%); border: 1px solid hsl(354 75% 55% / 0.35); }
+  .sev-high     { background-color: hsl(15 85% 55% / 0.15); color: hsl(15 85% 65%); border: 1px solid hsl(15 85% 55% / 0.35); }
+  .sev-medium   { background-color: hsl(32 92% 55% / 0.15); color: hsl(32 92% 65%); border: 1px solid hsl(32 92% 55% / 0.35); }
+  .sev-low      { background-color: hsl(187 92% 48% / 0.15); color: hsl(187 92% 70%); border: 1px solid hsl(187 92% 48% / 0.35); }
+  .sev-info     { background-color: hsl(215 12% 60% / 0.15); color: hsl(215 12% 70%); border: 1px solid hsl(215 12% 60% / 0.35); }
+
+  .light .sev-critical { background-color: hsl(354 75% 44% / 0.10); color: hsl(354 75% 40%); border-color: hsl(354 75% 44% / 0.30); }
+  .light .sev-high     { background-color: hsl(15 85% 45% / 0.10); color: hsl(15 85% 40%); border-color: hsl(15 85% 45% / 0.30); }
+  .light .sev-medium   { background-color: hsl(32 92% 42% / 0.10); color: hsl(32 92% 38%); border-color: hsl(32 92% 42% / 0.30); }
+  .light .sev-low      { background-color: hsl(187 92% 33% / 0.10); color: hsl(187 92% 30%); border-color: hsl(187 92% 33% / 0.30); }
+  .light .sev-info     { background-color: hsl(215 12% 42% / 0.10); color: hsl(215 12% 38%); border-color: hsl(215 12% 42% / 0.30); }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(hsl(var(--border) / 0.6) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.6) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+}
+
+@layer utilities {
+  input[type='search']::-webkit-search-cancel-button { @apply hidden; }
+
+  [contenteditable][data-placeholder]:empty::before {
+    content: attr(data-placeholder);
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+  }
+
+  .no-default-hover-elevate {}
+  .no-default-active-elevate {}
+
+  .toggle-elevate::before, .toggle-elevate-2::before {
+    content: ''; pointer-events: none; position: absolute; inset: 0;
+    border-radius: inherit; z-index: -1;
+  }
+  .toggle-elevate.toggle-elevated::before { background-color: var(--elevate-2); }
+  .border.toggle-elevate::before { inset: -1px; }
+
+  .hover-elevate:not(.no-default-hover-elevate),
+  .active-elevate:not(.no-default-active-elevate),
+  .hover-elevate-2:not(.no-default-hover-elevate),
+  .active-elevate-2:not(.no-default-active-elevate) {
+    position: relative; z-index: 0;
+  }
+
+  .hover-elevate:not(.no-default-hover-elevate)::after,
+  .active-elevate:not(.no-default-active-elevate)::after,
+  .hover-elevate-2:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:not(.no-default-active-elevate)::after {
+    content: ''; pointer-events: none; position: absolute; inset: 0;
+    border-radius: inherit; z-index: 999;
+  }
+
+  .hover-elevate:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate:active:not(.no-default-active-elevate)::after { background-color: var(--elevate-1); }
+  .hover-elevate-2:hover:not(.no-default-hover-elevate)::after,
+  .active-elevate-2:active:not(.no-default-active-elevate)::after { background-color: var(--elevate-2); }
+
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate-2:not(.no-hover-interaction-elevate)::after,
+  .border.active-elevate-2:not(.no-active-interaction-elevate)::after,
+  .border.hover-elevate:not(.no-hover-interaction-elevate)::after { inset: -1px; }
+}
