@@ -11,29 +11,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { apiRequest, queryClient as qc } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle } from "lucide-react";
+import { isPrivateLikeText, shouldDisableStart } from "./newScanGating";
 
-/**
- * Quick textual heuristic for hostnames that obviously refer to private/local
- * space. Used only to decide whether to show the LAN-consent checkbox — the
- * authoritative check happens on the server after DNS resolution.
- */
-function isPrivateLikeText(t: string): boolean {
-  const v = t.trim().toLowerCase().replace(/^\[|\]$/g, "");
-  if (!v) return false;
-  if (v === "localhost" || v.endsWith(".localhost") || v.endsWith(".local") || v.endsWith(".internal") || v.endsWith(".lan")) return true;
-  if (v === "::1" || v === "0:0:0:0:0:0:0:1") return true;
-  if (/^fe80:/i.test(v) || /^fc[0-9a-f]{2}:/i.test(v) || /^fd[0-9a-f]{2}:/i.test(v)) return true;
-  const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(v);
-  if (m) {
-    const [a, b] = [parseInt(m[1], 10), parseInt(m[2], 10)];
-    if (a === 127 || a === 10 || a === 0) return true;
-    if (a === 169 && b === 254) return true;
-    if (a === 192 && b === 168) return true;
-    if (a === 172 && b >= 16 && b <= 31) return true;
-    if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
-  }
-  return false;
-}
+// Re-export so existing imports/tests against this module keep working.
+export { isPrivateLikeText, shouldDisableStart };
 
 const PROFILES = [
   { id: "quick", title: "Quick", desc: "22, 80, 443 — under 5 seconds typical." },
@@ -81,12 +62,23 @@ export default function NewScan() {
     },
   });
 
-  const disabled = !authorizedAck || !target || (profile === "custom" && !customPorts) || create.isPending;
-
   // Heuristic only — the server enforces the actual policy after DNS resolution.
   // We surface the advanced consent UI when the typed string already looks
   // private/loopback so the user is not surprised by a 400.
   const looksPrivate = isPrivateLikeText(target);
+
+  // Gate the submit button on every required acknowledgment. The server
+  // already rejects requests missing allowPrivate=true for private targets;
+  // mirroring that gate in the UI prevents an avoidable round-trip and
+  // forces the operator to consciously confirm a LAN scan before clicking.
+  const disabled = shouldDisableStart({
+    authorizedAck,
+    target,
+    profile,
+    customPorts,
+    allowPrivate,
+    isPending: create.isPending,
+  });
 
   return (
     <>
