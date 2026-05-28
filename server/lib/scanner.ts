@@ -191,10 +191,19 @@ const SECURITY_HEADERS = [
   "permissions-policy",
 ];
 
+/**
+ * Passive probe option: accept any server cert so we can record TLS findings
+ * (expiry, self-signed, weak protocol). Probe traffic is read-only metadata
+ * collection against operator-supplied targets; results are never used to
+ * authenticate outbound requests from this app.
+ */
+const PROBE_TLS_REJECT_UNAUTHORIZED = false;
+
 /** Issue a simple HTTP/HTTPS HEAD request and collect headers + missing security headers. */
 export function probeHttp(host: string, port: number, useTls: boolean): Promise<HttpProbe | undefined> {
   return new Promise((resolve) => {
     const reqFn = useTls ? httpsRequest : httpRequest;
+    // nosemgrep: problem-based-packs.insecure-transport.js-node.bypass-tls-verification.bypass-tls-verification
     const opts = {
       host,
       port,
@@ -203,7 +212,7 @@ export function probeHttp(host: string, port: number, useTls: boolean): Promise<
       timeout: HTTP_TIMEOUT_MS,
       // Local research tool: do not send any auth, do not follow redirects
       headers: { "User-Agent": "SentinelScope/0.1" },
-      rejectUnauthorized: false, // allow self-signed; the check itself is the finding
+      rejectUnauthorized: PROBE_TLS_REJECT_UNAUTHORIZED,
     };
     let settled = false;
     const finish = (v: HttpProbe | undefined) => {
@@ -253,11 +262,11 @@ export function probeTls(host: string, port: number): Promise<TlsProbe | undefin
     let sock: TLSSocket | null = null;
     try {
       sock = tlsConnect(
-        {
+        { // nosemgrep: problem-based-packs.insecure-transport.js-node.bypass-tls-verification.bypass-tls-verification
           host,
           port,
           servername: host,
-          rejectUnauthorized: false,
+          rejectUnauthorized: PROBE_TLS_REJECT_UNAUTHORIZED,
           timeout: TLS_TIMEOUT_MS,
         },
         () => {

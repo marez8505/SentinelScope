@@ -1,0 +1,2 @@
+# SentinelScope static analysis (run from repo root):
+#   semgrep scan --config auto --config p/security-audit
